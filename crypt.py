@@ -28,15 +28,47 @@ except ImportError:
 XUL_BANNER = r"""
     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
     █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █
-    █ █  █ █ █  █ █ █  █ █ █  █ █ █ █  █ █
+    █ █  █ █ █  █ █ █ █  █ █ █  █ █ █ █  █ █
     █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █
     ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
          X  U  L   '  S   V  A  U  L  T
     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
     █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █  ▄▀▄  █
-    █ █  █ █ █  █ █ █  █ █ █  █ █ █ █  █ █
+    █ █  █ █ █  █ █ █ █  █ █ █  █ █ █ █  █ █
     █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █  ▀▄▀  █
     ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+"""
+
+# Linpeas-style ASCII shield shown during encrypt/decrypt
+ENCGO_SHIELD = r"""
+      ███████╗███╗   ██╗ ██████╗  ██████╗ ██████╗
+      ██╔════╝████╗  ██║██╔════╝ ██╔═══██╗██╔══██╗
+      █████╗  ██╔██╗ ██║██║      ██║   ██║██████╔╝
+      ██╔══╝  ██║╚██╗██║██║      ██║   ██║██╔══██╗
+      ███████╗██║ ╚████║╚██████╗ ╚██████╔╝██║  ██║
+      ╚══════╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+              ╔══════════════════════╗
+              ║  ┌──┐  ┌──┐  ┌──┐  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  └──┘  └──┘  └──┘  ║
+              ║  ┌──┐  ┌──┐  ┌──┐  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  └──┘  └──┘  └──┘  ║
+              ║  ┌──┐  ┌──┐  ┌──┐  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  └──┘  └──┘  └──┘  ║
+              ║  ┌──┐  ┌──┐  ┌──┐  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  └──┘  └──┘  └──┘  ║
+              ║  ┌──┐  ┌──┐  ┌──┐  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  │▓▓│  │▓▓│  │▓▓│  ║
+              ║  └──┘  └──┘  └──┘  ║
+              ╚══════════════════════╝
 """
 
 HK_QUOTES = [
@@ -119,6 +151,14 @@ def maybe_easter_egg(text: str):
         if trigger in lower:
             print(msg)
             return
+
+def show_shield(status: str):
+    """Display the EncGO shield with a status message (encrypting/decrypting)"""
+    print(ENCGO_SHIELD)
+    print(f"  ╔══════════════════════════════════════╗")
+    print(f"  ║  {status:^36}  ║")
+    print(f"  ╚══════════════════════════════════════╝")
+    print()
 
 def parse_expiry(s: str) -> int:
     """Parse expiry string: 7d, 30m, 1y, 24h → Unix ms (0=none)"""
@@ -362,6 +402,7 @@ def cmd_encrypt(args):
     max_uses = args.max_uses if args.max_uses is not None else (4 if args.expire or args.shred else 0)
     shred = args.shred
 
+    show_shield("🔐 ENCRYPTING 🔐")
     encrypt_file(in_path, out_path, file_key, salt, expiry_ms, max_uses, wrapped_key, shred)
 
     # Save wrapped key to companion file if asymmetric
@@ -405,6 +446,7 @@ def cmd_decrypt(args):
         maybe_easter_egg(args.passphrase)
         file_key = derive_key(args.passphrase, salt)
 
+    show_shield("🔓 DECRYPTING 🔓")
     decrypt_file(in_path, out_path, file_key, args.force_shred)
 
 def cmd_keygen(args):
