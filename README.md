@@ -71,8 +71,15 @@ python3 crypt.py file.txt.crypt --privkey my_private.pem
 # Decrypt with passphrase
 python3 crypt.py file.txt.crypt -p "my passphrase"
 
-# Generate a raw key
+# Generate a raw symmetric key
 python3 crypt.py --keygen -o mykey.key
+
+# Generate an RSA keypair (for public-key encryption)
+python3 crypt.py --keygen-rsa -o mykey
+# Creates: mykey.priv.pem (private) and mykey.pub.pem (public)
+
+# Generate with custom key size (2048, 3072, or 4096)
+python3 crypt.py --keygen-rsa --key-size 2048 -o fast
 
 # Verify file header (no decryption)
 python3 crypt.py --verify file.txt.crypt

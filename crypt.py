@@ -468,6 +468,50 @@ def cmd_keygen(args):
         info(f"Raw key (base64) → {out_path}")
         warn("Store this key securely — anyone with it can decrypt!")
 
+def cmd_keygen_rsa(args):
+    """Generate an RSA keypair and save as PEM files"""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key_size = args.key_size if hasattr(args, 'key_size') else 4096
+    info(f"Generating RSA-{key_size} keypair...")
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size
+    )
+
+    # Serialize private key
+    priv_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    # Serialize public key
+    pub_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    # Determine output paths
+    if args.output:
+        base = Path(args.output)
+        priv_path = base.with_suffix(".priv.pem")
+        pub_path = base.with_suffix(".pub.pem")
+    else:
+        priv_path = Path("private.pem")
+        pub_path = Path("public.pem")
+
+    with open(priv_path, "wb") as f:
+        f.write(priv_pem)
+    info(f"Private key → {priv_path}")
+    warn("Keep this secret! Anyone with this can decrypt your files.")
+
+    with open(pub_path, "wb") as f:
+        f.write(pub_pem)
+    info(f"Public key → {pub_path}")
+    info("Share this with anyone who needs to send you encrypted files.")
+
 def cmd_verify(args):
     """Verify a .crypt file integrity without decrypting"""
     in_path = Path(args.file)
@@ -506,7 +550,9 @@ Examples:
     parser.add_argument("file", nargs="?", help="File to encrypt or decrypt")
 
     # Mode flags
-    parser.add_argument("--keygen", action="store_true", help="Generate a new key")
+    parser.add_argument("--keygen", action="store_true", help="Generate a new symmetric key")
+    parser.add_argument("--keygen-rsa", action="store_true", help="Generate a new RSA keypair")
+    parser.add_argument("--key-size", type=int, default=4096, choices=[2048, 3072, 4096], help="RSA key size (default 4096)")
     parser.add_argument("--verify", action="store_true", help="Verify .crypt file header")
 
     # Key options
@@ -539,7 +585,9 @@ Examples:
         return
 
     # Dispatch
-    if args.keygen:
+    if args.keygen_rsa:
+        cmd_keygen_rsa(args)
+    elif args.keygen:
         cmd_keygen(args)
     elif args.verify:
         if not args.file:
