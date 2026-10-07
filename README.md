@@ -1,163 +1,179 @@
-# 🔐 Python Encryption Projects
+# EncGO
 
-A collection of encryption tools built in Python, ranging from classic ciphers to real AES encryption. Built from scratch as a learning project.
+**Xul's file encryption vault** — a terminal-only, password-based encryption tool with military-grade cryptography and a clean CLI.
 
----
-
-## 📁 Projects Overview
-
-| File | Description |
-|---|---|
-| `TEXT_FILE_ENCRYPTOR.py` | Encrypts a text file using the Caesar cipher |
-| `VIGENERE_cipher.py` | Vigenere cipher encryption and decryption (no GUI) |
-| `vigenere.py` | Alternative Vigenere cipher implementation |
-| `AES_ENCRYPTION.py` | AES encryption and decryption in the terminal |
-| `AES_GUI.py` | Full AES file encryptor and decryptor with a GUI |
-| `Encryptor.py` | GUI app that encrypts any file with an auto-generated key |
-| `Decryptor.py` | GUI app that decrypts a file using a key and encrypted file |
-| `Key_Generator.py` | Generates a random secure 16-character AES key |
+![Logo](logo.svg)
 
 ---
 
-## 🚀 Getting Started
+## Features
 
-### Requirements
-- Python 3.x
-- pycryptodome library
-
-### Install dependencies
-```
-pip install pycryptodome
-```
+| Feature | Details |
+|---------|---------|
+| **AES-256-GCM** | Authenticated encryption — confidentiality + integrity in one pass |
+| **Argon2id** | Memory-hard key derivation (GPU/ASIC resistant) with PBKDF2 fallback |
+| **RSA-OAEP** | Wrap file keys with a recipient's public key for secure transfer |
+| **Expiry timer** | Files can self-destruct after a set time (days, minutes, years) |
+| **Use limit** | Restrict how many times a file can be decrypted (default 4, customizable) |
+| **Secure shred** | 3-pass overwrite on expiry/limit — leaves nothing behind |
+| **Streaming** | 64 KiB chunks — handles multi-GB files with constant memory |
+| **No pickle** | Safe binary format — no arbitrary code execution risk |
 
 ---
 
-## 📖 How to Use Each File
+## Dependencies
 
-### TEXT_FILE_ENCRYPTOR.py
-Encrypts the contents of a text file using the Caesar cipher and saves the result to `encrypted2.txt`.
-
-1. Create a file called `message.txt` in the same folder and add your text
-2. Run the script
-3. Enter your shift number when prompted
-4. Check `encrypted2.txt` for the encrypted output
-
+```bash
+pip install cryptography argon2-cffi
 ```
-python TEXT_FILE_ENCRYPTOR.py
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `cryptography` | ≥ 42.0 | AES-GCM, RSA-OAEP, PBKDF2, secure random |
+| `argon2-cffi` | ≥ 23.1 | Argon2id key derivation |
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/CYBERWOLF333/EncGO.git
+cd EncGO
+pip install -r requirements.txt
 ```
 
 ---
 
-### VIGENERE_cipher.py / vigenere.py
-Encrypts and decrypts text using the Vigenere cipher — a more secure version of the Caesar cipher that uses a keyword instead of a single shift number.
+## Usage
 
-1. Run the script
-2. Choose encrypt (1) or decrypt (2)
-3. Enter your keyword
-4. Enter your message
-5. The encrypted/decrypted result will be saved to a file
+### Quick start
+
+```bash
+# Encrypt (prompts for passphrase)
+python3 crypt.py secrets.txt
+
+# Decrypt (prompts for passphrase)
+python3 crypt.py secrets.txt.crypt
+```
+
+### All commands
+
+```bash
+# Encrypt with passphrase
+python3 crypt.py file.txt -p "my passphrase"
+
+# Encrypt with public key (for transfer)
+python3 crypt.py file.txt --pubkey recipient.pem --expire 7d --max-uses 4
+
+# Decrypt with private key
+python3 crypt.py file.txt.crypt --privkey my_private.pem
+
+# Decrypt with passphrase
+python3 crypt.py file.txt.crypt -p "my passphrase"
+
+# Generate a raw key
+python3 crypt.py --keygen -o mykey.key
+
+# Verify file header (no decryption)
+python3 crypt.py --verify file.txt.crypt
+
+# Force shred an expired/limited file
+python3 crypt.py file.txt.crypt --force-shred
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-p, --passphrase` | Passphrase (prompted if omitted) |
+| `--pubkey` | Recipient's public key PEM (wraps file key) |
+| `--privkey` | Your private key PEM (unwraps file key) |
+| `-o, --output` | Output file path |
+| `--expire` | Expiry: `7d`, `30m`, `1y`, `24h` |
+| `--max-uses` | Max decrypt uses (default 4 with --expire/--shred) |
+| `--shred` | Secure shred on expiry/limit |
+| `--force-shred` | Force shred expired/limited file |
+| `--keygen` | Generate a new key |
+| `--verify` | Verify .crypt file header |
+| `--banner` | Show Xul's banner |
+| `--quote {hk,uk}` | Hollow Knight / Ultrakill quote |
+
+---
+
+## File Format
 
 ```
-python VIGENERE_cipher.py
+┌─────────────────────────────────────────────────────────┐
+│  Header (52 bytes)                                      │
+│  ├── Magic: "CRYPT1" (6 bytes)                          │
+│  ├── Version: 1 (1 byte)                                │
+│  ├── Flags: bitfield (1 byte)                           │
+│  ├── Salt: 16 bytes (Argon2id)                          │
+│  ├── Nonce: 12 bytes (AES-GCM)                          │
+│  ├── Expiry: 8 bytes (Unix ms, 0 = never)               │
+│  ├── Max uses: 4 bytes (0 = unlimited)                   │
+│  └── Current uses: 4 bytes                              │
+├─────────────────────────────────────────────────────────┤
+│  Optional: Wrapped key (if --pubkey used)               │
+│  ├── Length: 4 bytes                                    │
+│  └── RSA-OAEP encrypted file key (256/384/512 bytes)    │
+├─────────────────────────────────────────────────────────┤
+│  Ciphertext (variable)                                  │
+│  └── AES-256-GCM encrypted data                         │
+├─────────────────────────────────────────────────────────┤
+│  Tag (16 bytes)                                         │
+│  └── GCM authentication tag                              │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### AES_ENCRYPTION.py
-Terminal based AES encryption and decryption. Uses real AES-EAX encryption — the same standard used by banks and governments.
+## Security Properties
 
-1. Run the script
-2. Enter a exactly 16 character key
-3. Enter your message
-4. The script encrypts then immediately decrypts to verify it works
-
-```
-python AES_ENCRYPTION.py
-```
+- **Wrong password** and **tampered ciphertext** are indistinguishable — both fail closed
+- **No partial output** — on decrypt error, the output file is removed
+- **Refuses to overwrite** its own input file
+- **Output files** created with mode `0600`
+- **KDF parameters** bounds-checked to prevent DoS from crafted headers
+- **Constant-time** tag verification (built into `cryptography`)
+- **No key material** in logs, errors, or exceptions
 
 ---
 
-### AES_GUI.py
-A full GUI application for encrypting and decrypting any file (PDFs, images, text files) using AES encryption.
+## Easter Eggs
 
-1. Run the script — a window will open
-2. Click **Browse File** to select any file
-3. Either type a 16 character key or click **Generate Key** for a random one
-4. Click **Encrypt File** — saves encrypted data to `encrypted.bin`
-5. To decrypt, make sure the key is the same, then click **Decrypt File**
-6. The decrypted file is saved with its original extension (e.g. `decrypted_output.pdf`)
+Try these as passphrases or filenames:
 
-```
-python AES_GUI.py
-```
-
-> ⚠️ Save your key somewhere safe — without it you cannot decrypt your file!
-
----
-
-### Encryptor.py
-A simple GUI app that encrypts any file with an automatically generated secure key.
-
-1. Run the script — a window will open
-2. Click **Browse File** to select the file you want to encrypt
-3. Click **Generate Key** — a secure random key will appear
-4. Copy and save your key somewhere safe
-5. Click **Encrypt** — your file is encrypted and saved
-
-```
-python Encryptor.py
-```
+| Trigger | Game | Response |
+|---------|------|----------|
+| `void` | Hollow Knight | The void gazes back... |
+| `radiance` | Hollow Knight | A blinding light sears your retinas |
+| `pale king` | Hollow Knight | The White Palace doors creak open |
+| `hornet` | Hollow Knight | *Needle clicks* |
+| `v1` | Ultrakill | [V1 ACTIVATED] Blood fuel: 100% |
+| `v2` | Ultrakill | [V2 ONLINE] Paradise lost |
+| `gabriel` | Ultrakill | *trumpet sounds* |
+| `minos` | Ultrakill | *gavel falls* |
+| `sisyphus` | Ultrakill | Push the boulder. Again. Forever. |
+| `xul` | — | The vault keeper |
 
 ---
 
-### Decryptor.py
-A GUI app for decrypting files that were encrypted with the Encryptor or AES_GUI.
+## Exit Codes
 
-1. Run the script — a window will open
-2. Click **Browse File** to select your encrypted file
-3. Enter the key that was used to encrypt it
-4. Click **Decrypt** — your original file is restored
-
-```
-python Decryptor.py
-```
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Usage error |
+| 2 | Crypto failure (tamper/expiry/limit) |
+| 3 | I/O error |
 
 ---
 
-### Key_Generator.py
-Generates a random secure 16 character key for use with AES encryption.
+## License
 
-1. Run the script
-2. A random key is printed — copy and save it
-
-```
-python Key_Generator.py
-```
+MIT — use it, modify it, learn from it.
 
 ---
 
-## 🔑 Important Notes
-
-- AES keys must be **exactly 16 characters** long
-- Always save your key — there is no way to recover encrypted files without it
-- The Vigenere keyword can be any length and any letters
-- Caesar cipher shift numbers can be any whole number
-
----
-
-## 🧠 What I Learned Building This
-
-- How classical ciphers work (Caesar, Vigenere)
-- ASCII values and how `ord()` and `chr()` work in Python
-- Real AES encryption using the `pycryptodome` library
-- Reading and writing files in Python including binary files
-- Building GUI applications with `tkinter`
-- Generating cryptographically secure random keys with `secrets`
-
----
-
-## 📚 Built With
-
-- Python 3
-- [pycryptodome](https://pycryptodome.readthedocs.io/)
-- tkinter (built into Python)
+*EncGO — Sealed. Bound. Forgotten.*
